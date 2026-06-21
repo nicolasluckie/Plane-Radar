@@ -1,0 +1,18 @@
+# Project-specific ignores
+data-sample.json
+.DS_Store
+.env
+
+# Python
+__pycache__/
+*.py[codz]
+*$py.class
+.venv/
+venv/
+
+# Flask
+instance/
+
+# IDE
+.vscode/
+.idea/
