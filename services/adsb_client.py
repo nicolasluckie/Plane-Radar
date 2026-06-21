@@ -15,6 +15,10 @@ REQUEST_TIMEOUT_MS = 10000
 MAX_AIRCRAFT = 50
 
 
+class RateLimitError(RuntimeError):
+    """Raised when the ADS-B API returns HTTP 429 Too Many Requests."""
+
+
 class Aircraft:
     """Aircraft data structure."""
 
@@ -141,6 +145,10 @@ class ADSBClient:
             try:
                 response = requests.get(url, timeout=REQUEST_TIMEOUT_MS / 1000)
                 response.raise_for_status()
+            except requests.HTTPError as e:
+                if e.response is not None and e.response.status_code == 429:
+                    raise RateLimitError(f"ADS-B rate limited: {e}") from e
+                raise RuntimeError(f"ADS-B fetch error: {e}") from e
             except requests.RequestException as e:
                 raise RuntimeError(f"ADS-B fetch error: {e}") from e
 

@@ -48,8 +48,11 @@ class PlaneRadar:
         from radar import RadarDisplay
         from radar.range import RangeManager
         from services import ADSBClient
+        from services.adsb_client import RateLimitError
         from services.location import LocationStorage
         from web import WebServer
+
+        self._RateLimitError = RateLimitError
 
         # Create singletons from config
         location = LocationStorage(lat=cfg.lat, lon=cfg.lon)
@@ -111,6 +114,9 @@ class PlaneRadar:
         """Main loop."""
         last_fetch_time = 0.0
         fetch_interval_sec = self._cfg.fetch_interval_ms / 1000.0
+        backoff_sec = 0.0
+        _BACKOFF_INITIAL = 30.0
+        _BACKOFF_MAX = 120.0
 
         # Initial draw (empty grid)
         self.radar.draw([])
@@ -118,8 +124,9 @@ class PlaneRadar:
         while self.running:
             current_time = time.time()
 
-            # Fetch ADS-B data at interval
-            if current_time - last_fetch_time >= fetch_interval_sec:
+            # Fetch ADS-B data at interval (or backoff interval after rate limit)
+            effective_interval = backoff_sec if backoff_sec > 0 else fetch_interval_sec
+            if current_time - last_fetch_time >= effective_interval:
                 last_fetch_time = current_time
 
                 lat = self._location.get_lat()
@@ -140,6 +147,15 @@ class PlaneRadar:
                     if self._cfg.use_mock_data:
                         logger.debug("Using mock data (skipping live API)")
                     self.radar.refresh_aircraft(aircraft_list)
+                    self.portal.push_update(aircraft_list)
+                    backoff_sec = 0.0
+                except self._RateLimitError as e:
+                    backoff_sec = min(max(backoff_sec * 2, _BACKOFF_INITIAL), _BACKOFF_MAX)
+                    logger.warning(
+                        "Rate limited by ADS-B API — backing off %.0fs: %s",
+                        backoff_sec,
+                        e,
+                    )
                 except RuntimeError as e:
                     logger.error("ADS-B fetch failed: %s", e)
 

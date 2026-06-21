@@ -3,10 +3,12 @@ Flask web server for Plane Radar.
 Serves the radar view at / and aircraft data at /api/aircraft.
 """
 
+import json
 import logging
+import queue
 import threading
 
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, Response, jsonify, render_template_string, stream_with_context
 
 logger = logging.getLogger(__name__)
 
@@ -297,83 +299,74 @@ RADAR_TEMPLATE = """
             }
         }
 
-        async function updateRadar() {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-            try {
-                const response = await fetch('/api/aircraft', { signal: controller.signal });
-                clearTimeout(timeoutId);
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                const data = await response.json();
-                _setConnectionStatus(true);
+        function applyRadarData(data) {
+            _setConnectionStatus(true);
 
-                aircraftPositions = []; // Clear previous positions
-                drawGrid();
+            aircraftPositions = []; // Clear previous positions
+            drawGrid();
 
-                data.aircraft.forEach((ac, index) => {
-                    drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, index);
-                });
+            data.aircraft.forEach((ac, index) => {
+                drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, index);
+            });
 
-                // Update map center and zoom
-                const zoomMap = {0: 11, 1: 12, 2: 13, 3: 14};
-                const zoom = zoomMap[data.range_index] || 12;
-                map.setView([data.center_lat, data.center_lon], zoom);
+            // Update map center and zoom
+            const zoomMap = {0: 11, 1: 12, 2: 13, 3: 14};
+            const zoom = zoomMap[data.range_index] || 12;
+            map.setView([data.center_lat, data.center_lon], zoom);
 
-                document.getElementById('location').textContent =
-                    `Location: ${data.center_lat.toFixed(4)}, ${data.center_lon.toFixed(4)}`;
-                document.getElementById('range').textContent =
-                    `Range: ${data.range_label}`;
-                document.getElementById('aircraft-count').textContent =
-                    `Aircraft: ${data.aircraft.length}`;
+            document.getElementById('location').textContent =
+                `Location: ${data.center_lat.toFixed(4)}, ${data.center_lon.toFixed(4)}`;
+            document.getElementById('range').textContent =
+                `Range: ${data.range_label}`;
+            document.getElementById('aircraft-count').textContent =
+                `Aircraft: ${data.aircraft.length}`;
 
-                const list = document.getElementById('aircraft-list');
-                list.innerHTML = data.aircraft.map((ac, index) =>
-                    `<div class="aircraft-item" data-index="${index}">
-                        <strong>${ac.callsign}</strong> ${ac.type}<br>
-                        ${ac.alt} | ${ac.gs_knots.toFixed(0)}kt
-                    </div>`
-                ).join('');
+            const list = document.getElementById('aircraft-list');
+            list.innerHTML = data.aircraft.map((ac, index) =>
+                `<div class="aircraft-item" data-index="${index}">
+                    <strong>${ac.callsign}</strong> ${ac.type}<br>
+                    ${ac.alt} | ${ac.gs_knots.toFixed(0)}kt
+                </div>`
+            ).join('');
 
-                // Add hover handlers to list items
-                list.querySelectorAll('.aircraft-item').forEach(item => {
-                    item.addEventListener('mouseenter', () => {
-                        highlightedIndex = parseInt(item.dataset.index);
-                        item.classList.add('highlighted');
-                        // Redraw radar with highlight
-                        aircraftPositions = [];
-                        drawGrid();
-                        data.aircraft.forEach((ac, idx) => {
-                            drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, idx);
-                        });
-                    });
-
-                    item.addEventListener('mouseleave', () => {
-                        highlightedIndex = -1;
-                        item.classList.remove('highlighted');
-                        // Redraw radar without highlight
-                        aircraftPositions = [];
-                        drawGrid();
-                        data.aircraft.forEach((ac, idx) => {
-                            drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, idx);
-                        });
+            // Add hover handlers to list items
+            list.querySelectorAll('.aircraft-item').forEach(item => {
+                item.addEventListener('mouseenter', () => {
+                    highlightedIndex = parseInt(item.dataset.index);
+                    item.classList.add('highlighted');
+                    // Redraw radar with highlight
+                    aircraftPositions = [];
+                    drawGrid();
+                    data.aircraft.forEach((ac, idx) => {
+                        drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, idx);
                     });
                 });
-            } catch (err) {
-                clearTimeout(timeoutId);
-                _setConnectionStatus(false);
-                // Swallow — previous radar frame stays visible, next interval will retry
-            }
+
+                item.addEventListener('mouseleave', () => {
+                    highlightedIndex = -1;
+                    item.classList.remove('highlighted');
+                    // Redraw radar without highlight
+                    aircraftPositions = [];
+                    drawGrid();
+                    data.aircraft.forEach((ac, idx) => {
+                        drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, idx);
+                    });
+                });
+            });
         }
-        
+
         // Initial draw
         drawGrid();
 
-        // Update interval from .env
-        const fetchIntervalMs = {{ fetch_interval_ms }};
-        setInterval(updateRadar, fetchIntervalMs);
-        updateRadar();
+        // Connect to server-sent event stream — all tabs update in sync with backend fetch
+        const es = new EventSource('/api/stream');
+        es.onmessage = function(e) {
+            applyRadarData(JSON.parse(e.data));
+        };
+        es.onerror = function() {
+            _setConnectionStatus(false);
+            // EventSource reconnects automatically
+        };
         
         // Mouse hover detection
         canvas.addEventListener('mousemove', (e) => {
@@ -442,9 +435,50 @@ class WebServer:
         self.fetch_radius_km = fetch_radius_km
         self.fetch_interval_ms = fetch_interval_ms
         self.app = Flask(__name__)
+        self._subscribers: set = set()
+        self._subscribers_lock = threading.Lock()
+        self._last_payload: str | None = None
 
         # Setup Flask routes
         self._setup_routes()
+
+    def build_payload(self, aircraft_list) -> dict:
+        """Build the aircraft data dict shared by /api/aircraft and SSE push."""
+        result = []
+        for ac in aircraft_list:
+            result.append(
+                {
+                    "lat": ac.lat,
+                    "lon": ac.lon,
+                    "nose_deg": ac.nose_deg,
+                    "track_deg": ac.track_deg,
+                    "gs_knots": ac.gs_knots,
+                    "callsign": ac.callsign,
+                    "type": ac.type,
+                    "alt": ac.alt,
+                    "squawk": ac.squawk,
+                }
+            )
+        return {
+            "aircraft": result,
+            "center_lat": self.location.get_lat(),
+            "center_lon": self.location.get_lon(),
+            "outer_km": self.fetch_radius_km,
+            "range_label": f"{self.fetch_radius_km:.0f}km",
+            "range_index": self.range_manager.get_range_index(),
+        }
+
+    def push_update(self, aircraft_list) -> None:
+        """Push a new aircraft snapshot to all SSE subscribers."""
+        payload = self.build_payload(aircraft_list)
+        serialised = json.dumps(payload)
+        self._last_payload = serialised
+        with self._subscribers_lock:
+            for q in self._subscribers:
+                try:
+                    q.put_nowait(serialised)
+                except queue.Full:
+                    pass
 
     def _setup_routes(self):
         @self.app.route("/")
@@ -476,32 +510,7 @@ class WebServer:
 
             try:
                 raw_list = self.adsb_client.get_aircraft_list()
-                aircraft_list = []
-                for ac in raw_list:
-                    aircraft_list.append(
-                        {
-                            "lat": ac.lat,
-                            "lon": ac.lon,
-                            "nose_deg": ac.nose_deg,
-                            "track_deg": ac.track_deg,
-                            "gs_knots": ac.gs_knots,
-                            "callsign": ac.callsign,
-                            "type": ac.type,
-                            "alt": ac.alt,
-                            "squawk": ac.squawk,
-                        }
-                    )
-
-                return jsonify(
-                    {
-                        "aircraft": aircraft_list,
-                        "center_lat": self.location.get_lat(),
-                        "center_lon": self.location.get_lon(),
-                        "outer_km": self.fetch_radius_km,
-                        "range_label": f"{self.fetch_radius_km:.0f}km",
-                        "range_index": self.range_manager.get_range_index(),
-                    }
-                )
+                return jsonify(self.build_payload(raw_list))
             except Exception as e:
                 return jsonify(
                     {
@@ -515,6 +524,36 @@ class WebServer:
                     }
                 )
 
+        @self.app.route("/api/stream")
+        def api_stream():
+            q: queue.Queue = queue.Queue(maxsize=1)
+            last = self._last_payload
+            if last is not None:
+                q.put_nowait(last)
+            with self._subscribers_lock:
+                self._subscribers.add(q)
+
+            def generate():
+                try:
+                    while True:
+                        try:
+                            data = q.get(timeout=25)
+                            yield f"data: {data}\n\n"
+                        except queue.Empty:
+                            yield ": keepalive\n\n"
+                finally:
+                    with self._subscribers_lock:
+                        self._subscribers.discard(q)
+
+            return Response(
+                stream_with_context(generate()),
+                mimetype="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+
     def start(self):
         """Start the web server in a background thread."""
         if self.running:
@@ -527,7 +566,7 @@ class WebServer:
 
     def _run_server(self):
         """Run Flask server."""
-        self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
+        self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False, threaded=True)
 
     def stop(self):
         """Stop the web server."""

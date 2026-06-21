@@ -3,15 +3,16 @@ Unit tests for services/adsb_client.py.
 All tests run without hardware or network access.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from services.adsb_client import ADSBClient, Aircraft
+import pytest
 
+from services.adsb_client import ADSBClient, Aircraft, RateLimitError
 
 # ---------------------------------------------------------------------------
 # Aircraft dataclass defaults
 # ---------------------------------------------------------------------------
+
 
 class TestAircraftDefaults:
     def test_default_values(self):
@@ -30,6 +31,7 @@ class TestAircraftDefaults:
 # ---------------------------------------------------------------------------
 # read_json_float
 # ---------------------------------------------------------------------------
+
 
 class TestReadJsonFloat:
     def setup_method(self):
@@ -55,6 +57,7 @@ class TestReadJsonFloat:
 # pick_nose_heading
 # ---------------------------------------------------------------------------
 
+
 class TestPickNoseHeading:
     def setup_method(self):
         self.client = ADSBClient()
@@ -79,6 +82,7 @@ class TestPickNoseHeading:
 # pick_track_heading
 # ---------------------------------------------------------------------------
 
+
 class TestPickTrackHeading:
     def setup_method(self):
         self.client = ADSBClient()
@@ -98,6 +102,7 @@ class TestPickTrackHeading:
 # ---------------------------------------------------------------------------
 # pick_ground_speed
 # ---------------------------------------------------------------------------
+
 
 class TestPickGroundSpeed:
     def setup_method(self):
@@ -123,6 +128,7 @@ class TestPickGroundSpeed:
 # is_on_ground
 # ---------------------------------------------------------------------------
 
+
 class TestIsOnGround:
     def setup_method(self):
         self.client = ADSBClient()
@@ -143,6 +149,7 @@ class TestIsOnGround:
 # ---------------------------------------------------------------------------
 # format_altitude_tag
 # ---------------------------------------------------------------------------
+
 
 class TestFormatAltitudeTag:
     def setup_method(self):
@@ -168,6 +175,7 @@ class TestFormatAltitudeTag:
 # copy_json_string_trimmed
 # ---------------------------------------------------------------------------
 
+
 class TestCopyJsonStringTrimmed:
     def setup_method(self):
         self.client = ADSBClient()
@@ -176,7 +184,9 @@ class TestCopyJsonStringTrimmed:
         assert self.client.copy_json_string_trimmed({"flight": "AC123   "}, "flight") == "AC123"
 
     def test_truncates_to_max_len(self):
-        result = self.client.copy_json_string_trimmed({"flight": "ABCDEFGHIJK"}, "flight", max_len=5)
+        result = self.client.copy_json_string_trimmed(
+            {"flight": "ABCDEFGHIJK"}, "flight", max_len=5
+        )
         assert result == "ABCDE"
 
     def test_returns_empty_for_missing_key(self):
@@ -190,13 +200,16 @@ class TestCopyJsonStringTrimmed:
 # fill_tag_fields
 # ---------------------------------------------------------------------------
 
+
 class TestFillTagFields:
     def setup_method(self):
         self.client = ADSBClient()
 
     def test_fills_callsign_from_flight(self):
         ac = Aircraft()
-        self.client.fill_tag_fields(ac, {"flight": "AC123", "t": "B738", "alt_baro": 35000, "squawk": "1234"})
+        self.client.fill_tag_fields(
+            ac, {"flight": "AC123", "t": "B738", "alt_baro": 35000, "squawk": "1234"}
+        )
         assert ac.callsign == "AC123"
         assert ac.type == "B738"
         assert ac.alt == "35000 ft"
@@ -217,6 +230,7 @@ class TestFillTagFields:
 # fetch_update — mocked HTTP
 # ---------------------------------------------------------------------------
 
+
 class TestFetchUpdate:
     def setup_method(self):
         self.client = ADSBClient()
@@ -225,8 +239,17 @@ class TestFetchUpdate:
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "ac": [
-                {"lat": 43.5, "lon": -79.9, "gs": 480, "track": 90, "true_heading": 90,
-                 "flight": "AC001", "t": "B738", "alt_baro": 35000, "squawk": "1234"},
+                {
+                    "lat": 43.5,
+                    "lon": -79.9,
+                    "gs": 480,
+                    "track": 90,
+                    "true_heading": 90,
+                    "flight": "AC001",
+                    "t": "B738",
+                    "alt_baro": 35000,
+                    "squawk": "1234",
+                },
             ]
         }
         with patch("services.adsb_client.requests.get", return_value=mock_response):
@@ -262,7 +285,10 @@ class TestFetchUpdate:
 
     def test_raises_on_network_error(self):
         import requests as req
-        with patch("services.adsb_client.requests.get", side_effect=req.RequestException("timeout")):
+
+        with patch(
+            "services.adsb_client.requests.get", side_effect=req.RequestException("timeout")
+        ):
             with pytest.raises(RuntimeError, match="ADS-B fetch error"):
                 self.client.fetch_update(43.6777, -79.6248, 25.0)
 
@@ -274,3 +300,25 @@ class TestFetchUpdate:
 
         assert result is True
         assert self.client.get_aircraft_count() == 0
+
+    def test_raises_rate_limit_error_on_429(self):
+        import requests as req
+
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        http_error = req.HTTPError(response=mock_response)
+        mock_response.raise_for_status.side_effect = http_error
+        with patch("services.adsb_client.requests.get", return_value=mock_response):
+            with pytest.raises(RateLimitError):
+                self.client.fetch_update(43.6777, -79.6248, 25.0)
+
+    def test_non_429_http_error_raises_runtime_error(self):
+        import requests as req
+
+        mock_response = MagicMock()
+        mock_response.status_code = 503
+        http_error = req.HTTPError(response=mock_response)
+        mock_response.raise_for_status.side_effect = http_error
+        with patch("services.adsb_client.requests.get", return_value=mock_response):
+            with pytest.raises(RuntimeError):
+                self.client.fetch_update(43.6777, -79.6248, 25.0)
