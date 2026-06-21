@@ -22,10 +22,10 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Lint with ruff
-        run: ruff check .
+        run: python -m ruff check .
 
       - name: Run tests
-        run: pytest
+        run: python -m pytest
 
   changelog:
     runs-on: ubuntu-latest
