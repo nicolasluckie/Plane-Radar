@@ -123,8 +123,8 @@ sudo raspi-config
 **Option A — Clone directly on Pi (recommended):**
 
 ```bash
-git clone <repo-url> /opt/planeradar
-cd /opt/planeradar
+git clone <repo-url> /opt/plane-radar
+cd /opt/plane-radar
 python3 -m venv venv
 source venv/bin/activate
 pip install -e .
@@ -135,11 +135,11 @@ nano .env
 **Option B — Copy from Mac:**
 
 ```bash
-rsync -av --progress /path/to/Plane-Radar/ pi@<pi-ip>:/opt/planeradar/ \
+rsync -av --progress /path/to/Plane-Radar/ pi@<pi-ip>:/opt/plane-radar/ \
   --exclude venv --exclude __pycache__ --exclude .git
 
 ssh pi@<pi-ip>
-cd /opt/planeradar
+cd /opt/plane-radar
 python3 -m venv venv
 source venv/bin/activate
 pip install -e .
@@ -150,14 +150,14 @@ nano .env
 ### 4. Configure SSH Key (Mac → Pi)
 
 ```bash
-ssh-keygen -t rsa -b 4096 -f ~/.ssh/pi-planeradar -C "pi-planeradar"
-ssh-copy-id -i ~/.ssh/pi-planeradar.pub pi@<pi-ip-address>
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/pi-plane-radar -C "pi-plane-radar"
+ssh-copy-id -i ~/.ssh/pi-plane-radar.pub pi@<pi-ip-address>
 ```
 
 ### 5. Run
 
 ```bash
-cd /opt/planeradar
+cd /opt/plane-radar
 source venv/bin/activate
 python main.py
 
@@ -174,7 +174,7 @@ PLANERADAR_MOCK_DATA=1 python main.py
 
 Run at boot as a background service:
 
-1. Create `/etc/systemd/system/planeradar.service`:
+1. Create `/etc/systemd/system/plane-radar.service`:
 
 ```ini
 [Unit]
@@ -184,9 +184,9 @@ After=network.target
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/opt/planeradar
-Environment="PATH=/opt/planeradar/venv/bin"
-ExecStart=/opt/planeradar/venv/bin/python main.py
+WorkingDirectory=/opt/plane-radar
+Environment="PATH=/opt/plane-radar/venv/bin"
+ExecStart=/opt/plane-radar/venv/bin/python main.py
 Restart=always
 
 [Install]
@@ -196,12 +196,12 @@ WantedBy=multi-user.target
 2. Enable and start:
 
 ```bash
-sudo systemctl enable planeradar
-sudo systemctl start planeradar
-sudo systemctl status planeradar
+sudo systemctl enable plane-radar
+sudo systemctl start plane-radar
+sudo systemctl status plane-radar
 
 # Follow logs
-sudo journalctl -u planeradar -f
+sudo journalctl -u plane-radar -f
 ```
 
 ---
