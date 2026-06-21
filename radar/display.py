@@ -5,15 +5,15 @@ Maintains exact pixel-for-pixel visualization.
 
 import math
 from . import theme
-from services.location import location
-from radar.range import range_manager
 
 
 class RadarDisplay:
     """Radar display renderer."""
-    
-    def __init__(self, display_driver):
+
+    def __init__(self, display_driver, location, range_manager) -> None:
         self.display = display_driver
+        self.location = location
+        self.range_manager = range_manager
         self.init_palette()
     
     def init_palette(self):
@@ -45,20 +45,20 @@ class RadarDisplay:
     def offset_km_from_center(self, lat, lon):
         """Calculate offset from center in km."""
         km_per_deg = 111.0
-        dx_km = (lon - location.get_lon()) * km_per_deg
-        dy_km = (lat - location.get_lat()) * km_per_deg
+        dx_km = (lon - self.location.get_lon()) * km_per_deg
+        dy_km = (lat - self.location.get_lat()) * km_per_deg
         dist_km = math.sqrt(dx_km * dx_km + dy_km * dy_km)
         return dx_km, dy_km, dist_km
     
     def inner_ring_max_km(self):
         """Calculate max distance for inner ring."""
-        outer_km = range_manager.get_current_range()['outer_km']
+        outer_km = self.range_manager.get_current_range()['outer_km']
         inset_ratio = (theme.GRID_OUTER_RADIUS - theme.AIRCRAFT_INSIDE_RING_INSET_PX) / theme.GRID_OUTER_RADIUS
         return outer_km * inset_ratio
-    
+
     def lat_lon_to_screen(self, lat, lon):
         """Convert lat/lon to screen coordinates."""
-        outer_km = range_manager.get_current_range()['outer_km']
+        outer_km = self.range_manager.get_current_range()['outer_km']
         px_per_km = theme.GRID_OUTER_RADIUS / outer_km
         
         dx_km, dy_km, _ = self.offset_km_from_center(lat, lon)

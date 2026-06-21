@@ -3,10 +3,12 @@ Flask web server for Plane Radar.
 Serves the radar view at / and aircraft data at /api/aircraft.
 """
 
-from flask import Flask, render_template_string, jsonify
+import logging
 import threading
-import time
 
+from flask import Flask, jsonify, render_template_string
+
+logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 # HTML template for radar view
@@ -394,24 +396,18 @@ RADAR_TEMPLATE = """
 
 class WebServer:
     """Flask web server — serves radar view and aircraft JSON API."""
-    
-    def __init__(self, host='0.0.0.0', port=5000, adsb_client=None):
+
+    def __init__(self, host: str, port: int, location, range_manager, fetch_radius_km: float, fetch_interval_ms: int, adsb_client=None) -> None:
         self.host = host
         self.port = port
         self.server_thread = None
         self.running = False
         self.adsb_client = adsb_client
-        
-        # Import here to avoid circular dependency
-        from services.location import location
-        from radar.range import range_manager
-        import os
-        
         self.location = location
         self.range_manager = range_manager
-        self.fetch_radius_km = float(os.environ.get('PLANERADAR_FETCH_RADIUS_KM', '25'))
-        self.fetch_interval_ms = int(os.environ.get('PLANERADAR_FETCH_INTERVAL_MS', '5000'))
-        
+        self.fetch_radius_km = fetch_radius_km
+        self.fetch_interval_ms = fetch_interval_ms
+
         # Setup Flask routes
         self._setup_routes()
     
@@ -482,7 +478,7 @@ class WebServer:
         self.running = True
         self.server_thread = threading.Thread(target=self._run_server, daemon=True)
         self.server_thread.start()
-        print(f"Web server: http://{self.host}:{self.port}")
+        logger.info("Web server: http://%s:%d", self.host, self.port)
     
     def _run_server(self):
         """Run Flask server."""

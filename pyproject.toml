@@ -1,0 +1,33 @@
+[project]
+name = "plane-radar"
+version = "1.0.0"
+description = "Raspberry Pi ADS-B plane radar with GC9A01 display and Flask web interface"
+requires-python = ">=3.9"
+dependencies = [
+    "requests",
+    "flask",
+    "Pillow",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-mock>=3.0",
+]
+
+[project.scripts]
+plane-radar = "main:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.setuptools.packages.find]
+include = ["display", "display.*", "radar", "radar.*", "services", "services.*", "web", "web.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

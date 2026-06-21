@@ -1,0 +1,2 @@
+[console_scripts]
+plane-radar = main:main

@@ -3,17 +3,21 @@ GC9A01 240x240 round display driver for Raspberry Pi via framebuffer.
 Uses kernel device tree overlay (dtoverlay=gc9a01) which creates /dev/fb1.
 """
 
-import os
+import logging
 import mmap
+import os
 import struct
+
 from PIL import Image, ImageDraw, ImageFont
+
+logger = logging.getLogger(__name__)
 
 try:
     FRAMEBUFFER_PATH = "/dev/fb1"
     HARDWARE_AVAILABLE = os.path.exists(FRAMEBUFFER_PATH)
-except:
+except Exception:
     HARDWARE_AVAILABLE = False
-    print("Warning: /dev/fb1 not found. Enable dtoverlay=gc9a01 in /boot/config.txt and reboot.")
+    logger.warning("Could not check /dev/fb1. Enable dtoverlay=gc9a01 in /boot/config.txt and reboot.")
 
 
 class DisplayDriver:
@@ -52,7 +56,7 @@ class DisplayDriver:
                     self.font_bold = self.font
 
         if self.mock_mode:
-            print("Mock display initialized (240x240)")
+            logger.info("Mock display initialized (240x240)")
             return
 
         try:
@@ -60,7 +64,7 @@ class DisplayDriver:
             self.fb_file = open(self.fb_path, 'r+b')
             # Map to memory
             self.fb_mmap = mmap.mmap(self.fb_file.fileno(), self.fb_size)
-            print(f"Framebuffer initialized: {self.width}x{self.height} at {self.fb_path}")
+            logger.info("Framebuffer initialized: %dx%d at %s", self.width, self.height, self.fb_path)
             
             # Initialize PIL image for drawing (double buffer)
             self.image = Image.new('RGB', (self.width, self.height))
@@ -70,7 +74,7 @@ class DisplayDriver:
             # Clear display
             self.clear()
         except Exception as e:
-            print(f"Error initializing framebuffer: {e}")
+            logger.error("Error initializing framebuffer: %s", e)
             self.mock_mode = True
         
     def clear(self):

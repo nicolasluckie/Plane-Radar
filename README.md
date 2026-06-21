@@ -6,6 +6,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![CI](https://github.com/nicolasluckie/Plane-Radar/actions/workflows/ci.yml/badge.svg)](https://github.com/nicolasluckie/Plane-Radar/actions/workflows/ci.yml)
 
 </div>
 
@@ -307,6 +308,24 @@ Plane-Radar/
 | `/dev/fb1` missing | Check `dtoverlay=gc9a01` is in `/boot/config.txt` and reboot |
 | No aircraft showing | Check network, try `PLANERADAR_MOCK_DATA=1`, increase `PLANERADAR_FETCH_RADIUS_KM` |
 | Performance issues | Increase `PLANERADAR_FETCH_INTERVAL_MS`, reduce fetch radius, use Raspberry Pi OS Lite |
+
+---
+
+## Dev Setup
+
+For local development and running tests (no Pi hardware required):
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+Install pre-commit hooks (runs `ruff` lint on every commit):
+
+```bash
+pip install pre-commit
+pre-commit install
+```
 
 ---
 
