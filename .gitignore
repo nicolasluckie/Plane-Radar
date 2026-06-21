@@ -7,6 +7,7 @@ data-sample.json
 __pycache__/
 *.py[codz]
 *$py.class
+*.egg-info/
 .venv/
 venv/
 

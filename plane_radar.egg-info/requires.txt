@@ -1,8 +1,0 @@
-requests
-flask
-Pillow
-python-dotenv
-
-[dev]
-pytest>=7.0
-pytest-mock>=3.0
