@@ -47,6 +47,9 @@
 | Data | [adsb.fi](https://adsb.fi) public API |
 | Config | `python-dotenv` |
 | HTTP | `requests` |
+| Testing | `pytest` |
+| Linting | `ruff` |
+| Changelog | `git-cliff` |
 
 ---
 
@@ -124,7 +127,7 @@ git clone <repo-url> /opt/planeradar
 cd /opt/planeradar
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
 cp .env.example .env
 nano .env
 ```
@@ -139,7 +142,7 @@ ssh pi@<pi-ip>
 cd /opt/planeradar
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
 cp .env.example .env
 nano .env
 ```
@@ -207,7 +210,8 @@ sudo journalctl -u planeradar -f
 
 ```
 Plane-Radar/
-├── main.py                  # Entry point — orchestrates all subsystems
+├── main.py                  # Entry point — orchestrates all subsystems, setup_logging()
+├── config.py                # Centralized env var loading and validation
 ├── display/
 │   └── driver.py            # GC9A01 framebuffer driver (RGB → RGB565)
 ├── radar/
@@ -216,11 +220,15 @@ Plane-Radar/
 │   └── theme.py             # Colors and display constants
 ├── services/
 │   ├── adsb_client.py       # ADS-B API client and aircraft cache
-│   └── location.py          # Location config singleton
+│   └── location.py          # LocationStorage
 ├── web/
 │   └── server.py            # Flask web server — radar view and /api/aircraft endpoint
-├── data-sample.json         # Mock ADS-B data for offline development
-├── requirements.txt
+├── tests/                   # pytest unit tests (no hardware required)
+├── cliff.toml               # git-cliff changelog configuration
+├── pyproject.toml           # Package metadata, ruff config, dev dependencies
+├── requirements.txt         # Pinned runtime dependencies
+├── AGENTS.md                # AI agent commit message rules
+├── CHANGELOG.md             # Auto-generated changelog
 ├── .env.example
 └── README.md
 ```
