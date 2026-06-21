@@ -49,7 +49,8 @@ class RadarDisplay:
     def offset_km_from_center(self, lat, lon):
         """Calculate offset from center in km."""
         km_per_deg = 111.0
-        dx_km = (lon - self.location.get_lon()) * km_per_deg
+        center_lat_rad = math.radians(self.location.get_lat())
+        dx_km = (lon - self.location.get_lon()) * km_per_deg * math.cos(center_lat_rad)
         dy_km = (lat - self.location.get_lat()) * km_per_deg
         dist_km = math.sqrt(dx_km * dx_km + dy_km * dy_km)
         return dx_km, dy_km, dist_km

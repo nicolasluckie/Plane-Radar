@@ -9,7 +9,6 @@ import threading
 from flask import Flask, jsonify, render_template_string
 
 logger = logging.getLogger(__name__)
-app = Flask(__name__)
 
 # HTML template for radar view
 RADAR_TEMPLATE = """
@@ -423,7 +422,16 @@ RADAR_TEMPLATE = """
 class WebServer:
     """Flask web server — serves radar view and aircraft JSON API."""
 
-    def __init__(self, host: str, port: int, location, range_manager, fetch_radius_km: float, fetch_interval_ms: int, adsb_client=None) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        location,
+        range_manager,
+        fetch_radius_km: float,
+        fetch_interval_ms: int,
+        adsb_client=None,
+    ) -> None:
         self.host = host
         self.port = port
         self.server_thread = None
@@ -433,83 +441,94 @@ class WebServer:
         self.range_manager = range_manager
         self.fetch_radius_km = fetch_radius_km
         self.fetch_interval_ms = fetch_interval_ms
+        self.app = Flask(__name__)
 
         # Setup Flask routes
         self._setup_routes()
-    
+
     def _setup_routes(self):
-        @app.route('/')
+        @self.app.route("/")
         def index():
             zoom_map = {0: 11, 1: 12, 2: 13, 3: 14}
             zoom = zoom_map.get(self.range_manager.get_range_index(), 12)
 
-            return render_template_string(RADAR_TEMPLATE,
-                                         center_lat=self.location.get_lat(),
-                                         center_lon=self.location.get_lon(),
-                                         zoom=zoom,
-                                         fetch_interval_ms=self.fetch_interval_ms)
-        
-        @app.route('/api/aircraft')
+            return render_template_string(
+                RADAR_TEMPLATE,
+                center_lat=self.location.get_lat(),
+                center_lon=self.location.get_lon(),
+                zoom=zoom,
+                fetch_interval_ms=self.fetch_interval_ms,
+            )
+
+        @self.app.route("/api/aircraft")
         def api_aircraft():
             if self.adsb_client is None:
-                return jsonify({
-                    'aircraft': [],
-                    'center_lat': self.location.get_lat(),
-                    'center_lon': self.location.get_lon(),
-                    'outer_km': self.fetch_radius_km,
-                    'range_label': f'{self.fetch_radius_km:.0f}km',
-                    'range_index': self.range_manager.get_range_index()
-                })
-            
+                return jsonify(
+                    {
+                        "aircraft": [],
+                        "center_lat": self.location.get_lat(),
+                        "center_lon": self.location.get_lon(),
+                        "outer_km": self.fetch_radius_km,
+                        "range_label": f"{self.fetch_radius_km:.0f}km",
+                        "range_index": self.range_manager.get_range_index(),
+                    }
+                )
+
             try:
+                raw_list = self.adsb_client.get_aircraft_list()
                 aircraft_list = []
-                for i in range(self.adsb_client.get_aircraft_count()):
-                    ac = self.adsb_client.get_aircraft_list()[i]
-                    aircraft_list.append({
-                        'lat': ac.lat,
-                        'lon': ac.lon,
-                        'nose_deg': ac.nose_deg,
-                        'track_deg': ac.track_deg,
-                        'gs_knots': ac.gs_knots,
-                        'callsign': ac.callsign,
-                        'type': ac.type,
-                        'alt': ac.alt,
-                        'squawk': ac.squawk
-                    })
-                
-                return jsonify({
-                    'aircraft': aircraft_list,
-                    'center_lat': self.location.get_lat(),
-                    'center_lon': self.location.get_lon(),
-                    'outer_km': self.fetch_radius_km,
-                    'range_label': f'{self.fetch_radius_km:.0f}km',
-                    'range_index': self.range_manager.get_range_index()
-                })
+                for ac in raw_list:
+                    aircraft_list.append(
+                        {
+                            "lat": ac.lat,
+                            "lon": ac.lon,
+                            "nose_deg": ac.nose_deg,
+                            "track_deg": ac.track_deg,
+                            "gs_knots": ac.gs_knots,
+                            "callsign": ac.callsign,
+                            "type": ac.type,
+                            "alt": ac.alt,
+                            "squawk": ac.squawk,
+                        }
+                    )
+
+                return jsonify(
+                    {
+                        "aircraft": aircraft_list,
+                        "center_lat": self.location.get_lat(),
+                        "center_lon": self.location.get_lon(),
+                        "outer_km": self.fetch_radius_km,
+                        "range_label": f"{self.fetch_radius_km:.0f}km",
+                        "range_index": self.range_manager.get_range_index(),
+                    }
+                )
             except Exception as e:
-                return jsonify({
-                    'aircraft': [],
-                    'center_lat': self.location.get_lat(),
-                    'center_lon': self.location.get_lon(),
-                    'outer_km': self.fetch_radius_km,
-                    'range_label': f'{self.fetch_radius_km:.0f}km',
-                    'range_index': self.range_manager.get_range_index(),
-                    'error': str(e)
-                })
-    
+                return jsonify(
+                    {
+                        "aircraft": [],
+                        "center_lat": self.location.get_lat(),
+                        "center_lon": self.location.get_lon(),
+                        "outer_km": self.fetch_radius_km,
+                        "range_label": f"{self.fetch_radius_km:.0f}km",
+                        "range_index": self.range_manager.get_range_index(),
+                        "error": str(e),
+                    }
+                )
+
     def start(self):
         """Start the web server in a background thread."""
         if self.running:
             return
-        
+
         self.running = True
         self.server_thread = threading.Thread(target=self._run_server, daemon=True)
         self.server_thread.start()
         logger.info("Web server: http://%s:%d", self.host, self.port)
-    
+
     def _run_server(self):
         """Run Flask server."""
-        app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
-    
+        self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
+
     def stop(self):
         """Stop the web server."""
         self.running = False

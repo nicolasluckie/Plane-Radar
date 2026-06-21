@@ -41,9 +41,8 @@ def setup_logging(level: str, log_to_disk: bool, log_path: str) -> None:
 class PlaneRadar:
     """Main application class."""
 
-    def __init__(self) -> None:
+    def __init__(self, cfg) -> None:
         self.running = True
-        cfg = load_config()
 
         from display import DisplayDriver
         from radar import RadarDisplay
@@ -129,7 +128,9 @@ class PlaneRadar:
 
                 logger.debug(
                     "Fetching ADS-B data (lat=%.4f, lon=%.4f, radius=%.1fkm)...",
-                    lat, lon, fetch_radius,
+                    lat,
+                    lon,
+                    fetch_radius,
                 )
 
                 try:
@@ -137,7 +138,7 @@ class PlaneRadar:
                     aircraft_list = self.adsb.get_aircraft_list()
                     logger.debug("ADS-B: %d aircraft", len(aircraft_list))
                     if self._cfg.use_mock_data:
-                        logger.info("Using mock data (skipping live API)")
+                        logger.debug("Using mock data (skipping live API)")
                     self.radar.refresh_aircraft(aircraft_list)
                 except RuntimeError as e:
                     logger.error("ADS-B fetch failed: %s", e)
@@ -157,12 +158,12 @@ def main() -> None:
     setup_logging(cfg.log_level, cfg.log_to_disk, cfg.log_path)
 
     try:
-        app = PlaneRadar()
+        app = PlaneRadar(cfg)
         app.run()
     except Exception as e:
         logger.exception("Fatal error: %s", e)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
