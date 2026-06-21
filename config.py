@@ -5,6 +5,7 @@ Reads and validates all PLANERADAR_* environment variables in one place.
 
 import os
 from dataclasses import dataclass
+
 from dotenv import load_dotenv
 
 _VALID_LOG_LEVELS = {"debug", "info", "warning", "error", "critical"}
@@ -85,9 +86,7 @@ def load_config() -> Config:
         lon=_get_float("PLANERADAR_LON", -79.6248),
         fetch_interval_ms=_get_int("PLANERADAR_FETCH_INTERVAL_MS", 3000),
         fetch_radius_km=_get_float("PLANERADAR_FETCH_RADIUS_KM", 25.0),
-        api_base=os.environ.get(
-            "PLANERADAR_API_BASE", "https://opendata.adsb.fi/api/v3/lat/"
-        ),
+        api_base=os.environ.get("PLANERADAR_API_BASE", "https://opendata.adsb.fi/api/v3/lat/"),
         range_index=range_index,
         use_miles=_get_bool("PLANERADAR_USE_MILES", False),
         show_runways=_get_bool("PLANERADAR_SHOW_RUNWAYS", True),
@@ -95,9 +94,7 @@ def load_config() -> Config:
         web_port=_get_int("PLANERADAR_WEB_PORT", 8080),
         log_level=log_level,
         log_to_disk=_get_bool("PLANERADAR_LOG_TO_DISK", False),
-        log_path=os.environ.get(
-            "PLANERADAR_LOG_PATH", "/var/log/plane-radar/app.log"
-        ),
+        log_path=os.environ.get("PLANERADAR_LOG_PATH", "/var/log/plane-radar/app.log"),
         debug=debug,
         use_mock_data=_get_bool("PLANERADAR_MOCK_DATA", False),
     )

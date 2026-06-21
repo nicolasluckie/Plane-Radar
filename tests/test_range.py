@@ -3,8 +3,7 @@ Unit tests for radar/range.py.
 All tests run without hardware access.
 """
 
-import pytest
-from radar.range import RangeManager, RANGE_PRESETS, DEFAULT_RANGE_INDEX
+from radar.range import DEFAULT_RANGE_INDEX, RANGE_PRESETS, RangeManager
 
 
 class TestRangeManagerInit:
@@ -37,7 +36,7 @@ class TestGetCurrentRange:
         for i in range(len(RANGE_PRESETS)):
             rm = RangeManager(range_index=i)
             r = rm.get_current_range()
-            assert r['outer_km'] > r['ring3_km']
+            assert r["outer_km"] > r["ring3_km"]
 
 
 class TestGetRangeIndex:
@@ -79,7 +78,7 @@ class TestFormatCurrentRing3Label:
     def test_matches_manual_format_call(self):
         for i in range(len(RANGE_PRESETS)):
             rm = RangeManager(range_index=i)
-            expected = rm.format_ring3_label(RANGE_PRESETS[i]['ring3_km'])
+            expected = rm.format_ring3_label(RANGE_PRESETS[i]["ring3_km"])
             assert rm.format_current_ring3_label() == expected
 
 
