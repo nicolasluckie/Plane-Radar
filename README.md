@@ -268,14 +268,17 @@ Plane-Radar/
 | `PLANERADAR_LAT` | Radar center latitude | `43.6777` |
 | `PLANERADAR_LON` | Radar center longitude | `-79.6248` |
 | `PLANERADAR_FETCH_INTERVAL_MS` | ADS-B fetch interval (ms) | `3000` |
-| `PLANERADAR_FETCH_RADIUS_KM` | API fetch radius (km) | `15` |
+| `PLANERADAR_FETCH_RADIUS_KM` | API fetch radius (km) | `25` |
 | `PLANERADAR_RANGE_INDEX` | Display range preset (0=5km, 1=10km, 2=15km, 3=25km) | `1` |
 | `PLANERADAR_USE_MILES` | Distance units (0=km, 1=miles) | `0` |
 | `PLANERADAR_SHOW_RUNWAYS` | Show runway overlay (0/1) | `1` |
 | `PLANERADAR_WEB_HOST` | Web portal bind host | `0.0.0.0` |
 | `PLANERADAR_WEB_PORT` | Web portal port | `8080` |
 | `PLANERADAR_API_BASE` | ADS-B API base URL | `https://opendata.adsb.fi/api/v3/lat/` |
-| `PLANERADAR_DEBUG` | Verbose logging (0/1) | `0` |
+| `PLANERADAR_LOG_LEVEL` | Log verbosity (`debug`, `info`, `warning`, `error`, `critical`) | `warning` |
+| `PLANERADAR_LOG_TO_DISK` | Write rotating log file in addition to stderr (0/1) | `0` |
+| `PLANERADAR_LOG_PATH` | Log file path (used when `LOG_TO_DISK=1`) | `/var/log/plane-radar/app.log` |
+| `PLANERADAR_DEBUG` | Override log level to `debug` (0/1) | `0` |
 | `PLANERADAR_MOCK_DATA` | Use `data-sample.json` instead of live API (0/1) | `0` |
 
 > To preview raw API data: `curl "https://opendata.adsb.fi/api/v3/lat/43.6777/lon/-79.6248/dist/15"`
