@@ -284,62 +284,88 @@ RADAR_TEMPLATE = """
             aircraftPositions.push({ x: pos.x, y: pos.y, ac: ac, radius: 12, index: index });
         }
         
-        function updateRadar() {
-            fetch('/api/aircraft')
-                .then(r => r.json())
-                .then(data => {
-                    aircraftPositions = []; // Clear previous positions
-                    drawGrid();
-                    
-                    data.aircraft.forEach((ac, index) => {
-                        drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, index);
-                    });
-                    
-                    // Update map center and zoom
-                    const zoomMap = {0: 11, 1: 12, 2: 13, 3: 14};
-                    const zoom = zoomMap[data.range_index] || 12;
-                    map.setView([data.center_lat, data.center_lon], zoom);
-                    
-                    document.getElementById('location').textContent = 
-                        `Location: ${data.center_lat.toFixed(4)}, ${data.center_lon.toFixed(4)}`;
-                    document.getElementById('range').textContent = 
-                        `Range: ${data.range_label}`;
-                    document.getElementById('aircraft-count').textContent = 
-                        `Aircraft: ${data.aircraft.length}`;
-                    
-                    const list = document.getElementById('aircraft-list');
-                    list.innerHTML = data.aircraft.map((ac, index) => 
-                        `<div class="aircraft-item" data-index="${index}">
-                            <strong>${ac.callsign}</strong> ${ac.type}<br>
-                            ${ac.alt} | ${ac.gs_knots.toFixed(0)}kt
-                        </div>`
-                    ).join('');
-                    
-                    // Add hover handlers to list items
-                    list.querySelectorAll('.aircraft-item').forEach(item => {
-                        item.addEventListener('mouseenter', () => {
-                            highlightedIndex = parseInt(item.dataset.index);
-                            item.classList.add('highlighted');
-                            // Redraw radar with highlight
-                            aircraftPositions = [];
-                            drawGrid();
-                            data.aircraft.forEach((ac, idx) => {
-                                drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, idx);
-                            });
+        let _fetchOnline = true;
+
+        function _setConnectionStatus(online) {
+            if (online === _fetchOnline) return;
+            _fetchOnline = online;
+            const el = document.getElementById('aircraft-count');
+            if (!online) {
+                el.textContent = 'Connection lost — retrying…';
+                el.style.color = '#f87171';
+            } else {
+                el.style.color = '';
+            }
+        }
+
+        async function updateRadar() {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            try {
+                const response = await fetch('/api/aircraft', { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+                _setConnectionStatus(true);
+
+                aircraftPositions = []; // Clear previous positions
+                drawGrid();
+
+                data.aircraft.forEach((ac, index) => {
+                    drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, index);
+                });
+
+                // Update map center and zoom
+                const zoomMap = {0: 11, 1: 12, 2: 13, 3: 14};
+                const zoom = zoomMap[data.range_index] || 12;
+                map.setView([data.center_lat, data.center_lon], zoom);
+
+                document.getElementById('location').textContent =
+                    `Location: ${data.center_lat.toFixed(4)}, ${data.center_lon.toFixed(4)}`;
+                document.getElementById('range').textContent =
+                    `Range: ${data.range_label}`;
+                document.getElementById('aircraft-count').textContent =
+                    `Aircraft: ${data.aircraft.length}`;
+
+                const list = document.getElementById('aircraft-list');
+                list.innerHTML = data.aircraft.map((ac, index) =>
+                    `<div class="aircraft-item" data-index="${index}">
+                        <strong>${ac.callsign}</strong> ${ac.type}<br>
+                        ${ac.alt} | ${ac.gs_knots.toFixed(0)}kt
+                    </div>`
+                ).join('');
+
+                // Add hover handlers to list items
+                list.querySelectorAll('.aircraft-item').forEach(item => {
+                    item.addEventListener('mouseenter', () => {
+                        highlightedIndex = parseInt(item.dataset.index);
+                        item.classList.add('highlighted');
+                        // Redraw radar with highlight
+                        aircraftPositions = [];
+                        drawGrid();
+                        data.aircraft.forEach((ac, idx) => {
+                            drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, idx);
                         });
-                        
-                        item.addEventListener('mouseleave', () => {
-                            highlightedIndex = -1;
-                            item.classList.remove('highlighted');
-                            // Redraw radar without highlight
-                            aircraftPositions = [];
-                            drawGrid();
-                            data.aircraft.forEach((ac, idx) => {
-                                drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, idx);
-                            });
+                    });
+
+                    item.addEventListener('mouseleave', () => {
+                        highlightedIndex = -1;
+                        item.classList.remove('highlighted');
+                        // Redraw radar without highlight
+                        aircraftPositions = [];
+                        drawGrid();
+                        data.aircraft.forEach((ac, idx) => {
+                            drawAircraft(ac, data.center_lat, data.center_lon, data.outer_km, idx);
                         });
                     });
                 });
+            } catch (err) {
+                clearTimeout(timeoutId);
+                _setConnectionStatus(false);
+                // Swallow — previous radar frame stays visible, next interval will retry
+            }
         }
         
         // Initial draw
