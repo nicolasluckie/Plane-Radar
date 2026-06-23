@@ -6,6 +6,7 @@ Maintains exact pixel-for-pixel visualization.
 import math
 
 from . import theme
+from .squawk import get_squawk_meaning
 
 
 class RadarDisplay:
@@ -16,6 +17,10 @@ class RadarDisplay:
         self.location = location
         self.range_manager = range_manager
         self.init_palette()
+
+    def get_squawk_meaning(self, squawk: str) -> str:
+        """Get shortcode meaning for squawk code."""
+        return get_squawk_meaning(squawk)
 
     def init_palette(self):
         """Initialize color palette from RGB values."""
@@ -299,9 +304,9 @@ class RadarDisplay:
         font_bold = self.display.font_bold if self.display.font_bold else self.display.font
         font_regular = self.display.font
 
-        # Tag dimensions (approximate, now 4 lines tall)
+        # Tag dimensions (approximate, now 5 lines tall with squawk meaning)
         tag_width = 40
-        tag_height = 40
+        tag_height = 48
         gap = theme.AIRCRAFT_NOSE_LEN_PX + theme.AIRCRAFT_LABEL_GAP_PX
 
         # Try different positions: right, left, above, below
@@ -342,6 +347,11 @@ class RadarDisplay:
             self.display.text(
                 aircraft.squawk, tag_x, tag_y + 36, theme.COLOR_TAG_SQUAWK, font=font_bold
             )
+            squawk_meaning = self.get_squawk_meaning(aircraft.squawk)
+            if squawk_meaning:
+                self.display.text(
+                    squawk_meaning, tag_x, tag_y + 44, theme.COLOR_TAG_SQUAWK, font=font_regular
+                )
 
     def draw_aircraft(self, aircraft_list):
         """Draw all aircraft."""
