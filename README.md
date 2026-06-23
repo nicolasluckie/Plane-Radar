@@ -13,9 +13,9 @@
 
 <div align="center">
 
-|Web Version _(this)_|ESP-C3 Version|
+|Web Version _(this)_|ESP32 Version|
 |:---:|:---:|
-|![Plane Radar Web](Plane-Radar-Web.png)|![Plane Radar ESP-C3](Plane-Radar-ESP32-C3.webp)|
+|![Plane Radar Web](Plane-Radar-Web.png)|![Plane Radar ESP32](Plane-Radar-ESP32-C3.webp)|
 
 </div>
 
