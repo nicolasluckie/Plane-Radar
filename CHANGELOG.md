@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add scale label left of E cardinal on radar canvas ([`a981a7e`](https://github.com/nicolasluckie/Plane-Radar/commit/a981a7e909e45386a301fab6b648ac11691bd64e))
 - Add squawk code meanings to aircraft tag display ([`2c0e2e5`](https://github.com/nicolasluckie/Plane-Radar/commit/2c0e2e5ecf41f28c7d1fcf93060edbf7ee57aa3c))
 
+### Changed
+
+- Fix typo in README ([`b3e31c2`](https://github.com/nicolasluckie/Plane-Radar/commit/b3e31c2bea04a424b1e90034a995128328b1a7d8))
+
 ### Fixed
 
 - Handle fetch timeout and network errors in updateRadar ([`99d9575`](https://github.com/nicolasluckie/Plane-Radar/commit/99d95756a7bbb677099b0ae6d53d53f5d1dd746f))
