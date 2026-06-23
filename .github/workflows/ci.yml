@@ -9,9 +9,13 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -25,7 +29,19 @@ jobs:
         run: python -m ruff check .
 
       - name: Run tests
-        run: python -m pytest
+        run: python -m pytest --junitxml=tests/junit.xml
+
+      - name: Generate test badge
+        run: python -m genbadge tests -i tests/junit.xml -o tests/badge.svg
+
+      - name: Commit test badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tests/badge.svg
+          git diff --cached --quiet || git commit -m "chore(ci): update test badge [skip ci]"
+          git push
 
   changelog:
     runs-on: ubuntu-latest

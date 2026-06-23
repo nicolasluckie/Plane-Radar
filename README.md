@@ -7,6 +7,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![CI](https://github.com/nicolasluckie/Plane-Radar/actions/workflows/ci.yml/badge.svg)](https://github.com/nicolasluckie/Plane-Radar/actions/workflows/ci.yml)
+[![Tests](https://raw.githubusercontent.com/nicolasluckie/Plane-Radar/main/tests/badge.svg)](https://github.com/nicolasluckie/Plane-Radar/actions/workflows/ci.yml)
 
 </div>
 
@@ -217,6 +218,7 @@ Plane-Radar/
 ├── radar/
 │   ├── display.py           # Radar renderer — coordinate conversion, drawing
 │   ├── range.py             # Range presets and distance calculations
+│   ├── squawk.py            # Squawk code meanings (shared between display and web)
 │   └── theme.py             # Colors and display constants
 ├── services/
 │   ├── adsb_client.py       # ADS-B API client and aircraft cache
