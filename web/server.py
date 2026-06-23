@@ -10,6 +10,8 @@ import threading
 
 from flask import Flask, Response, jsonify, render_template_string, stream_with_context
 
+from radar.squawk import SQUAWK_CODES
+
 logger = logging.getLogger(__name__)
 
 # HTML template for radar view
@@ -131,6 +133,7 @@ RADAR_TEMPLATE = """
         
         // Store aircraft positions for hover detection
         let aircraftPositions = [];
+        let scaleLabel = '';
         let highlightedIndex = -1;
         
         // Initialize Leaflet map
@@ -159,6 +162,13 @@ RADAR_TEMPLATE = """
             tagType: '#ffc800',
             tagAlt: '#5ac8ff'
         };
+
+        // Squawk code meanings (shared with display.py)
+        const SQUAWK_CODES = {{ squawk_codes | tojson }};
+
+        function getSquawkMeaning(squawk) {
+            return SQUAWK_CODES[squawk] || '';
+        }
         
         function drawGrid() {
             // Clear canvas (transparent for map behind)
@@ -198,6 +208,21 @@ RADAR_TEMPLATE = """
             ctx.fillText('W', 2, CENTER_Y + 5);
             ctx.textAlign = 'right';
             ctx.fillText('E', 238, CENTER_Y + 5);
+
+            // Scale label left of E
+            if (scaleLabel) {
+                ctx.font = 'bold 10px Arial';
+                ctx.textAlign = 'right';
+                const labelMetrics = ctx.measureText(scaleLabel);
+                const labelW = labelMetrics.width + 4;
+                const labelH = 12;
+                const labelX = 222 - labelMetrics.width - 4;
+                const labelY = CENTER_Y - 6;
+                ctx.fillStyle = COLORS.background;
+                ctx.fillRect(labelX, labelY, labelW, labelH);
+                ctx.fillStyle = COLORS.grid;
+                ctx.fillText(scaleLabel, 222, CENTER_Y + 4);
+            }
         }
         
         function latLonToScreen(lat, lon, centerLat, centerLon, outerKm) {
@@ -303,6 +328,7 @@ RADAR_TEMPLATE = """
             _setConnectionStatus(true);
 
             aircraftPositions = []; // Clear previous positions
+            scaleLabel = data.range_label;
             drawGrid();
 
             data.aircraft.forEach((ac, index) => {
@@ -316,6 +342,7 @@ RADAR_TEMPLATE = """
 
             document.getElementById('location').textContent =
                 `Location: ${data.center_lat.toFixed(4)}, ${data.center_lon.toFixed(4)}`;
+            
             document.getElementById('range').textContent =
                 `Range: ${data.range_label}`;
             document.getElementById('aircraft-count').textContent =
@@ -382,12 +409,15 @@ RADAR_TEMPLATE = """
                 
                 if (dist < pos.radius) {
                     const ac = pos.ac;
+                    const squawkMeaning = getSquawkMeaning(ac.squawk);
+                    const squawkLine = ac.squawk ? `Squawk: ${ac.squawk}${squawkMeaning ? ' (' + squawkMeaning + ')' : ''}<br>` : '';
                     tooltip.innerHTML = `
                         <strong>${ac.callsign}</strong> ${ac.type}<br>
                         Alt: ${ac.alt}<br>
                         Speed: ${ac.gs_knots.toFixed(0)} kt<br>
                         Heading: ${ac.nose_deg.toFixed(0)}°<br>
                         Track: ${ac.track_deg.toFixed(0)}°<br>
+                        ${squawkLine}
                         Pos: ${ac.lat.toFixed(4)}, ${ac.lon.toFixed(4)}
                     `;
                     tooltip.style.display = 'block';
@@ -492,6 +522,7 @@ class WebServer:
                 center_lon=self.location.get_lon(),
                 zoom=zoom,
                 fetch_interval_ms=self.fetch_interval_ms,
+                squawk_codes=SQUAWK_CODES,
             )
 
         @self.app.route("/api/aircraft")
