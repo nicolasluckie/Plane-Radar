@@ -32,7 +32,7 @@ jobs:
         run: python -m pytest --junitxml=tests/junit.xml
 
       - name: Generate test badge
-        run: python -m genbadge tests -i tests/junit.xml -o tests/badge.svg
+        run: genbadge tests -i tests/junit.xml -o tests/badge.svg
 
       - name: Commit test badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
